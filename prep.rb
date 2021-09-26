@@ -1,4 +1,4 @@
-require './vequals'
+require './vequals_v2'
 
 # Turns a tracepoint into a line of ruby code (as a string)
 
@@ -19,30 +19,44 @@ require './vequals'
 # end
 
 # trace.enable
-Vequals.enable(logging: true)
+Vequals.enable(logging: false)
 
-# "foo" => bar
-#           ‖
-#         aaaaa
-#         ‖
-# c   =   b
+"foo" => bar
+          ‖
+        aaaaa
+        ‖
+c   =   b
+puts c == "foo"
+puts b == "foo"
+puts aaaaa == "foo"
 
-# 3 => fooooooobaaaaar
-#       ‖  ‖  ‖  ‖  ‖
-#       d  e  f  g  h
+3 => fooooooobaaaaar
+      ‖  ‖  ‖  ‖  ‖
+      d  e  f  g  h
+puts "h=#{h}"
+puts "e=#{e}"
 
-4
+7
 ‖
 x
+
+puts "x = #{x}"
+
+
+# 3 => foobar => y
+#        ‖       ‖
+#        x       z
 
 # puts "done"
 # # puts "result=#{result}"
 # puts "b=#{b}"
 # puts "e=#{e}"
+# puts "x=#{x}"
+# puts "z=#{z}"
 
-puts c == "foo"
-puts b == "foo"
-puts aaaaa == "foo"
+# puts c == "foo"
+# puts b == "foo"
+# puts aaaaa == "foo"
 # puts "x=#{x}"
 
 # puts "done"

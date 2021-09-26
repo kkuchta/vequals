@@ -47,6 +47,33 @@ class Vequals
     end
   end
 
+  def process_line_for_vequals(line, lineno, line_binding)
+    previous_line_vequals_to_process = @vequals_to_process
+    @vequals_to_process = []
+  
+    # Ignore the column field in the provided by the lexer, since it doesn't
+    # properly take into account multibyte codepoints (ie anything other than
+    # ascii). For example, `Î` takes up two bytes and so anything after it will
+    # have its column offset by 2, which screws up line position matching.
+    column = 0
+
+    lexed = Ripper.lex(line)
+    log "Lexed as #{lexed}"
+
+    # Look through this line for any vequals
+    lexed.each do |_positions, type, token, state|
+      if event == :on_ident && value == "‖"
+        previous_line_exp_ranges = get_exp_ranges(line - 1)
+        @vequals_to_process << {
+          # Evaluate in the context of the vequals line
+          value: eval_result,
+          column: column,
+          lineno: lineno
+        }
+      end
+    end
+  end
+
   # Yeah, we should break this up, but it's not worth it for a project like
   # this nonsense.
   def process_line(line, lineno, line_binding)
