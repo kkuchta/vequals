@@ -19,25 +19,30 @@ require './vequals'
 # end
 
 # trace.enable
-Vequals.enable
+Vequals.enable(logging: true)
 
-"foo" => bar
-          ‖
-        aaaaa
-        ‖
-c   =   b
+# "foo" => bar
+#           ‖
+#         aaaaa
+#         ‖
+# c   =   b
+
+# 3 => fooooooobaaaaar
+#       ‖  ‖  ‖  ‖  ‖
+#       d  e  f  g  h
+
+4
 ‖
-d => e => f => g
-               ‖
-              result
+x
 
-3 => fooooooobaaaaar
-        ‖  ‖ 
-        a  b 
+# puts "done"
+# # puts "result=#{result}"
+# puts "b=#{b}"
+# puts "e=#{e}"
 
-  puts "done"
-  puts "result=#{result}"
-puts "b=#{b}"
-puts "a=#{a}"
+puts c == "foo"
+puts b == "foo"
+puts aaaaa == "foo"
+# puts "x=#{x}"
 
 # puts "done"

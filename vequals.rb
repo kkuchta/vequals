@@ -74,7 +74,9 @@ class Vequals
         exp_ranges << ["'" + value + "'", (column..(column + value.length))]
       when :on_ident
         if value == "‖"
+          # Ignore if we're on the first line (?)
           next unless previous_line_exp_ranges = @exp_ranges_by_line.last
+
           exp_range_above = previous_line_exp_ranges.find do |exp_range|
             exp_range[1].include?(column)
           end
@@ -89,6 +91,7 @@ class Vequals
             lineno: lineno
           }
         else
+          # We're lookinng at an identifier (variable name)
           log "considering ident #{value}, column #{column}, length: #{value.length}"
   
           # Since this is a variable (or at least an identifier), let's see if
@@ -116,6 +119,8 @@ class Vequals
               log "About to run '#{assignment_code}'"
               line_binding.eval(assignment_code)
             end
+          else
+            puts "No matching vequals entry"
           end
   
           exp_ranges << [value, (column..(column + value.length))]
