@@ -1,4 +1,4 @@
-require './vequals_v2'
+require './vequals'
 
 # This is just the test file for trying out weird things with vequals.
 

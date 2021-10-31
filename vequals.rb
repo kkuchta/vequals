@@ -1,26 +1,31 @@
 require 'ripper'
 
 class Vequals
+  # This is a helper method so you can just write `Vequals.enable` to quickly
+  # play around with vequals.
   def self.enable(logging: false, &block)
     vequals = Vequals.new
     vequals.enable(logging: logging, &block)
   end
 
+  # Enable vequals - either after this method call, or in the given block if
+  # provided.  It's hard to debug this because tracepoint doesn't play well with
+  # pry-byebug, so I've added a bunch of optional logging to help with that.
   def enable(logging: false, &block)
     @logging = logging
+    @vequels_by_line = {}
 
     trace = TracePoint.new(:line) do |tp|
       line = File.readlines(tp.path)[tp.lineno - 1]
       log "line=#{tp.lineno}: " + line
-      process_line(line, tp.lineno, tp.binding)
+      check_for_vequels(line, tp)
+      process_any_vequels_from_previous_line(line, tp)
+      log "vequels_by_line=#{@vequels_by_line}"
       log ""
     end
 
-    @exp_ranges_by_line = []
-    @vequals_to_process = []
-
-    # TODO: use refinements to limit scope
-    Object.send(:define_method, :‖) {|*_|}
+    # Define our vequals operator as a globally-available method.
+    Object.define_method(:‖) {|*_|}
 
     if block_given?
       trace.enable(&block) 
@@ -29,27 +34,10 @@ class Vequals
     end
   end 
 
-  # You can't drop a breakpoint into code that's running inside a tracepoint
-  # callback (since tracepoint is used to implement the breakpoints), so we
-  # need to rely on logging a lot.
-  def log(*args)
-    puts *args if @logging
-  end
-
-  # Turn a literal value like the string "foo" and turn it into a string that,
-  # when evaled, produces that literal value.
-  # // TODO: handle more types (eg arrays)
-  def literalize(value)
-    if value.is_a? String
-      '"' + value + '"'
-    else
-      value
-    end
-  end
-
-  def process_line_for_vequals(line, lineno, line_binding)
-    previous_line_vequals_to_process = @vequals_to_process
-    @vequals_to_process = []
+  # Find any vequals on this line, and store them alongside whatever expression
+  # they point to.
+  def check_for_vequels(line, tp)
+    @vequels_by_line[tp.lineno] = []
   
     # Ignore the column field in the provided by the lexer, since it doesn't
     # properly take into account multibyte codepoints (ie anything other than
@@ -62,110 +50,110 @@ class Vequals
 
     # Look through this line for any vequals
     lexed.each do |_positions, type, token, state|
-      if event == :on_ident && value == "‖"
-        previous_line_exp_ranges = get_exp_ranges(line - 1)
-        @vequals_to_process << {
-          # Evaluate in the context of the vequals line
-          value: eval_result,
-          column: column,
-          lineno: lineno
+      if type == :on_ident && token == "‖"
+
+        # Get the expression above this vequels
+        exp_above = get_exp(tp.path, tp.lineno - 1, column)
+
+        # Get the value of that expression
+        eval_result = tp.binding.eval(exp_above)
+
+        @vequels_by_line[tp.lineno] << {
+          value_to_assign: eval_result,
+          column: column
         }
       end
+      column += token.length
     end
   end
 
-  # Yeah, we should break this up, but it's not worth it for a project like
-  # this nonsense.
-  def process_line(line, lineno, line_binding)
-    log "Starting line with vequals to process:#{@vequals_to_process}"
-  
-    # Lex the current line
-    lexed = Ripper.lex(line)
-    log "Lexed as #{lexed}"
-    exp_ranges = []
-  
-    previous_line_vequals_to_process = @vequals_to_process
-    @vequals_to_process = []
-  
-    # Ignore the column field in the provided by the lexer, since it doesn't
-    # properly take into account multibyte codepoints (ie anything other than
-    # ascii). For example, `Î` takes up two bytes and so anything after it will
-    # have its column offset by 2, which screws up line position matching.
-    column = 0
-  
-    # Figure out where each token is on the line
-    lexed.each do |_, event, value, state|
-      case event
-      when :on_tstring_content
-        # yeah, this breaks string interpolation
-        exp_ranges << ["'" + value + "'", (column..(column + value.length))]
-      when :on_ident
-        if value == "‖"
-          # Ignore if we're on the first line (?)
-          next unless previous_line_exp_ranges = @exp_ranges_by_line.last
-
-          exp_range_above = previous_line_exp_ranges.find do |exp_range|
-            exp_range[1].include?(column)
-          end
-  
-          # puts "About to eval '#{exp_range_above[0]}'"
-          eval_result = line_binding.eval(exp_range_above[0])
-          # puts "Got eval result: '#{eval_result}'"
-          @vequals_to_process << {
-            # Evaluate in the context of the vequals line
-            value: eval_result,
-            column: column,
-            lineno: lineno
-          }
-        else
-          # We're lookinng at an identifier (variable name)
-          log "considering ident #{value}, column #{column}, length: #{value.length}"
-  
-          # Since this is a variable (or at least an identifier), let's see if
-          # there is a vequals directly above it.
-          matching_vequals_entry = previous_line_vequals_to_process.find do |vequals_entry|
-            (column..(column + value.length)).include?(vequals_entry[:column])
-          end
-  
-          # If there is, define the variable we're looking at.
-          if matching_vequals_entry
-            log "Found matching vequals: #{matching_vequals_entry}"
-            # if it already exists, just set it
-            if line_binding.local_variable_defined?(value.to_sym)
-              line_binding.local_variable_set(value.to_sym, matching_vequals_entry[:value])
-            else
-              # If not, we need to create a new local variable.
-  
-              # You can't inject new local variables into a binding (only update
-              # existing ones). So instead, we'll take the coward's path and just
-              # define a method with that name. This works because the def goes up
-              # one scope level. This makes this "variable" in scope in more places
-              # than it should be, but I won't tell if you don't.
-              new_value = literalize(matching_vequals_entry[:value])
-              assignment_code = "def #{value}(*args) = #{new_value}"
-              log "About to run '#{assignment_code}'"
-              line_binding.eval(assignment_code)
-            end
-          else
-            puts "No matching vequals entry"
-          end
-  
-          exp_ranges << [value, (column..(column + value.length))]
-        end
-      when :on_int
-        exp_ranges << [value, (column..(column + value.length))]
-      else
-        # log "Skipping #{event}"
-        # Not an expression we care about
-      end
-  
-      column += value.length
+  # Take a literal value like the string "foo" and turn it into a string that,
+  # when evaled, produces that literal value.
+  # // TODO: handle more types (eg arrays)
+  def literalize(value)
+    if value.is_a? String
+      '"' + value + '"'
+    else
+      value
     end
-  
-    # Add this on to the end and pop the oldest line off the front. TODO: real
-    # queue. We only need the last 2 lines because that's how far up we want to
-    # look for the ||.
-    @exp_ranges_by_line << exp_ranges
-    @exp_ranges_by_line.shift if @exp_ranges_by_line.length > 2
+  end
+
+  # Find any identifiers on this line and, if they line up with a vequals from
+  # the previous line, do the assignment.
+  def process_any_vequels_from_previous_line(line, tp)
+    # Skip if this is the first line since there can be no vequals above it.
+    return unless vequels_to_process = @vequels_by_line[tp.lineno-1]
+
+    lexed = Ripper.lex(line)
+
+    column = 0
+    lexed.each do |_positions, type, token, state|
+      if type == :on_ident
+        # is there a vequels above me?
+        matching_vequals_entry = vequels_to_process.find do |vequals_entry|
+          (column..(column + token.length)).include?(vequals_entry[:column])
+        end
+        if matching_vequals_entry
+          log "Found vequals above #{token} with value #{matching_vequals_entry[:exp_above]}"
+          value_to_assign = matching_vequals_entry[:value_to_assign]
+
+          # if it already exists, just set it
+          if tp.binding.local_variable_defined?(token.to_sym)
+            tp.binding.local_variable_set(token.to_sym, value_to_assign)
+          else
+            # If not, we need to create a new local variable.
+
+            # You can't inject new local variables into a binding (only update
+            # existing ones). So instead, we'll take the coward's path and just
+            # define a method with that name. This works because the def goes up
+            # one scope level. This makes this "variable" in scope in more places
+            # than it should be, but I won't tell if you don't.
+            value_as_literal = literalize(value_to_assign)
+            assignment_code = "def #{token}(*args) = #{value_as_literal}"
+            log "About to run '#{assignment_code}'"
+            tp.binding.eval(assignment_code)
+          end
+        end
+      end
+      column += token.length
+    end
+  end
+
+  # Get any expression on the given line that overlaps the given column.
+  def get_exp(path, lineno, column)
+    line = File.readlines(path)[lineno - 1]
+    exp_ranges = get_exp_ranges(line)
+    exp_range = exp_ranges.find do |exp_range|
+      exp_range[1].include?(column)
+    end
+    exp_range[0]
+  end
+
+  # Try to find any expressions on this line.  This is hacky and only works on a
+  # few kinds of expressions.
+  def get_exp_ranges(line)
+    lexed = Ripper.lex(line)
+    column = 0
+    exp_ranges = []
+    lexed.each do |_positions, type, token, state|
+      case type
+      when :on_tstring_content
+        exp_ranges << ["'" + token + "'", (column..(column + token.length))]
+      when :on_ident
+        exp_ranges << [token, (column..(column + token.length))]
+      when :on_int
+        exp_ranges << [token, (column..(column + token.length))]
+      else
+        # Skipping type
+        # Ints, strings, and identifiers are the only expressions that exist
+      end
+      column += token.length
+    end
+    exp_ranges
+  end
+
+  # Optional logging
+  def log(*args)
+    puts *args if @logging
   end
 end
