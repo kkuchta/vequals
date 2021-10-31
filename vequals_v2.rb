@@ -19,10 +19,8 @@ class Vequals
       log ""
     end
 
-    # @exp_ranges_by_line = []
-
     # TODO: use refinements to limit scope
-    Object.send(:define_method, :‖) {|*_|}
+    Object.define_method(:‖) {|*_|}
 
     if block_given?
       trace.enable(&block) 
@@ -33,8 +31,6 @@ class Vequals
 
   def check_for_vequels(line, tp)
     @vequels_by_line[tp.lineno] = []
-    # previous_line_vequals_to_process = @vequals_to_process
-    # @vequals_to_process = []
   
     # Ignore the column field in the provided by the lexer, since it doesn't
     # properly take into account multibyte codepoints (ie anything other than

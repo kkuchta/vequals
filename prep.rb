@@ -1,62 +1,71 @@
 require './vequals_v2'
 
-# Turns a tracepoint into a line of ruby code (as a string)
+# This is just the test file for trying out weird things with vequals.
 
-# TODO: handle more literals
+Vequals.enable
 
-  
+# "yay"
+#  ‖   123
+# foo  ‖
+#     bar
+# puts foo # "yay"
+# puts bar # 123
 
-# code = [
-#   "3 => foobar",
-#   "     ‖",
-#   "c = bizbaz",
-# ].each_with_index { |line, i| process_line(line, i+1) }
-
-# trace = TracePoint.new(:line) do |tp|
-#   puts "line=#{tp.lineno}: " + get_line(tp)
-#   process_line(get_line(tp), tp.lineno, tp.binding)
-#   puts ""
-# end
-
-# trace.enable
-Vequals.enable(logging: false)
-
-"foo" => bar
-          ‖
-        aaaaa
+        1
         ‖
-c   =   b
-puts c == "foo"
-puts b == "foo"
-puts aaaaa == "foo"
+x = x = x = x = x
+‖   ‖   ‖   ‖   ‖
+l = x = x = x = x
+‖   ‖   ‖   ‖   ‖
+l = x = x = x = l
+‖   ‖   ‖   ‖   ‖
+l = x = x = x = l
+‖               ‖
+i     =___=     i
+‖      ‖ ‖      ‖
+z      z z      z
 
-3 => fooooooobaaaaar
-      ‖  ‖  ‖  ‖  ‖
-      d  e  f  g  h
-puts "h=#{h}"
-puts "e=#{e}"
+# [3,  4,   5]
+#  ‖   ‖    ‖
+#  a = b <= 6
+#  ‖        ‖
+#  d   =>   c
+#  ‖        ‖
+#  x   ==   e
+#  ‖        ‖
+#  f = g =  h => z
 
-7
-‖
-x
+# "foo" => bar
+#           ‖
+#         aaaaa
+#         ‖   ‖
+# c   =   b   ddd
+# puts b # prints "foo"
+# puts c # prints "foo"
+# puts ddd # prints "foo"
 
-puts "x = #{x}"
-
-
-# 3 => foobar => y
-#        ‖       ‖
-#        x       z
-
-# puts "done"
-# # puts "result=#{result}"
-# puts "b=#{b}"
-# puts "e=#{e}"
-# puts "x=#{x}"
-# puts "z=#{z}"
+# "foo" => bar
+#           ‖
+#         aaaaa
+#         ‖
+# c   =   b
 
 # puts c == "foo"
 # puts b == "foo"
 # puts aaaaa == "foo"
-# puts "x=#{x}"
 
-# puts "done"
+# 3 => fooooooobaaaaar
+#       ‖  ‖  ‖  ‖  ‖
+#       d  e  f  g  h
+# puts "h=#{h}"
+# puts "e=#{e}"
+
+# 7
+# ‖
+# x
+
+# puts "x = #{x}"
+
+# 3 => foobar => y
+#        ‖       ‖
+#        x       z
