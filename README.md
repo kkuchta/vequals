@@ -14,7 +14,7 @@ If you want a runthrough on how it works, check out my companion talk at RubyCon
 
 ## Getting Started
 
-You probably _shouldn't_ get started. Getting started only ever leads to bad things; here more than every.
+You probably _shouldn't_ get started. Getting started only ever leads to bad things; here more than ever.
 
 But if you really must, you can `require 'vequals'`, then call `Vequals.enable`, after which point the `‖` operator will "work"... if you can call it that.
 
@@ -27,3 +27,5 @@ But if you really must, you can `require 'vequals'`, then call `Vequals.enable`,
 ## Prior Art
 
 There was a great version of vertical assignment created by one of the ruby core contributors. I can't find it right now because I'm on a plane with no wifi, but it was implemented in C as part of the core language and it was very nifty. You should go check that out.
+
+Update: it's here, and of course is was by mame (Yusuke Endoh) https://bugs.ruby-lang.org/issues/17768
